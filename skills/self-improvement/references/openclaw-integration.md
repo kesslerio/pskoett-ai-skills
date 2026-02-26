@@ -1,311 +1,109 @@
 # OpenClaw Integration Guide
 
-Complete setup and usage guide for integrating the self-improvement skill with OpenClaw's distributed learning model.
+Use this reference when running `self-improvement` in OpenClaw environments.
 
-## Overview
+## Core Model
 
-OpenClaw is a terminal-based AI coding assistant that uses workspace-based prompt injection. Unlike Claude Code's hook system, OpenClaw injects context from workspace files at session start and supports inter-agent communication.
+OpenClaw favors workspace-level memory and prompt injection over tool-specific hooks.
 
-## Architecture Comparison
+- Project-scoped learnings stay in `.learnings/`
+- Cross-project patterns are promoted to workspace guidance files
+- Session-to-session sharing uses `sessions_*` tools
 
-| Feature | Claude Code | OpenClaw |
-|---------|------------|----------|
-| Learning storage | `.learnings/` in project | Workspace files (`~/clawd/`) |
-| Activation | Hooks (UserPromptSubmit) | Workspace injection at start |
-| Promotion targets | `CLAUDE.md`, `AGENTS.md` | `SOUL.md`, `TOOLS.md`, `AGENTS.md` |
-| Inter-agent comms | Not built-in | `sessions_*` tools |
-| Skill registry | Manual / agentskills.io | ClawdHub integration |
+## Recommended Workspace Layout
 
-## Workspace Setup
+Use placeholders instead of machine-specific paths:
 
-### Default Structure
-
-```
-~/clawd/                          # Configurable via ~/.openclaw/openclaw.json
-├── AGENTS.md                    # Multi-agent coordination patterns
-├── SOUL.md                      # Behavioral guidelines and personality
-├── TOOLS.md                     # Tool capabilities and MCP gotchas
-├── skills/                      # ClawdHub skills cache
+```text
+<workspace>/
+├── AGENTS.md
+├── SOUL.md
+├── TOOLS.md
+├── skills/
 │   └── <skill-name>/
 │       └── SKILL.md
-└── sessions/                    # Auto-managed session transcripts
+└── sessions/
     └── <session-id>.jsonl
 ```
 
-### Configuration
+## Promotion Targets in OpenClaw
 
-Edit `~/.openclaw/openclaw.json`:
+Promote only broadly reusable patterns:
 
-```json
-{
-  "workspace": "~/clawd",
-  "model": "claude-sonnet-4-20250514",
-  "inject_files": ["AGENTS.md", "SOUL.md", "TOOLS.md"],
-  "session_history": true
-}
+- `AGENTS.md`: workflow and delegation rules
+- `SOUL.md`: behavior/style guidelines
+- `TOOLS.md`: tool/MCP usage and gotchas
+
+Keep one-off details in project `.learnings/` files.
+
+## Promotion Decision Tree
+
+```text
+Project-specific?
+├── Yes -> keep in .learnings/ or project docs
+└── No  -> Behavioral?
+          ├── Yes -> SOUL.md
+          └── Tool/integration?
+                    ├── Yes -> TOOLS.md
+                    └── AGENTS.md
 ```
 
-## Injected Prompt Files
+## Inter-Session Sharing Pattern
 
-### AGENTS.md
+When you discover something important in one session:
 
-Purpose: Multi-agent workflows and delegation patterns.
+1. Identify related active sessions (`sessions_list`)
+2. Send concise learning summary (`sessions_send`)
+3. Log durable rule to workspace or project file as appropriate
 
-```markdown
-# Agent Coordination
+Keep shared messages short and actionable.
 
-## Delegation Rules
-- Use explore agent for open-ended codebase questions
-- Use research-agent for external documentation lookup
-- Use Plan agent before complex implementations
+### Command Snippets
 
-## Session Handoff
-When delegating to another session:
-1. Provide full context in the handoff message
-2. Include relevant file paths
-3. Specify expected output format
-```
-
-### SOUL.md
-
-Purpose: Behavioral guidelines and communication style.
-
-```markdown
-# Behavioral Guidelines
-
-## Communication Style
-- Be direct and concise
-- Avoid unnecessary caveats and disclaimers
-- Use technical language appropriate to context
-
-## Decision Making
-- Prefer simple solutions over clever ones
-- Ask clarifying questions early
-- Explain trade-offs when presenting options
-
-## Error Handling
-- Admit mistakes promptly
-- Provide corrected information immediately
-- Log significant errors to learnings
-```
-
-### TOOLS.md
-
-Purpose: Tool capabilities, MCP server knowledge, integration gotchas.
-
-```markdown
-# Tool Knowledge
-
-## MCP Servers
-
-### atlassian
-- Use `search` for general queries across Jira/Confluence
-- Only use `searchJiraIssuesUsingJql` when JQL syntax is explicitly needed
-- CloudId can be extracted from URLs (tool handles conversion)
-- Page IDs are in URL path: `/pages/123456789/`
-
-### leanix
-- Use external_id (not internal id) for lookups
-- expand_teams/expand_apps for nested data
-
-## Built-in Tools
-
-### Bash
-- Prefer specialized tools over bash (Read over cat, Glob over find)
-- Use for git operations, npm/pnpm, docker commands
-
-### Task
-- Use explore agent for codebase questions
-- Use research-agent for external docs
-```
-
-## Learning Workflow
-
-### Capturing Learnings
-
-1. **In-session**: Log to `.learnings/` as usual (project-specific)
-2. **Cross-project**: Promote to workspace files (openclaw)
-
-### Promotion Decision Tree
-
-```
-Is the learning project-specific?
-├── Yes → Promote to CLAUDE.md or .learnings/
-└── No → Is it behavioral/style-related?
-    ├── Yes → Promote to SOUL.md
-    └── No → Is it tool/MCP-related?
-        ├── Yes → Promote to TOOLS.md
-        └── No → Promote to AGENTS.md (workflow)
-```
-
-### Promotion Format Examples
-
-**From learning:**
-> MCP atlassian server: search tool is for general queries. Only use JQL/CQL tools when user explicitly mentions JQL or CQL syntax.
-
-**To TOOLS.md:**
-```markdown
-### atlassian
-- `search`: Use for general queries (default)
-- `searchJiraIssuesUsingJql`: Only when JQL explicitly requested
-- `searchConfluenceUsingCql`: Only when CQL explicitly requested
-```
-
-## Inter-Agent Communication
-
-OpenClaw provides tools for cross-session communication:
-
-### sessions_list
-
-View active and recent sessions:
-```
+```bash
+# Find active/recent sessions
 sessions_list --active
 sessions_list --recent 10
-```
 
-### sessions_history
+# Send a learning to another session
+sessions_send --to <session-id> --message "Learning: <short actionable summary>"
 
-Read transcript from another session:
-```
+# Pull recent context from a session transcript
 sessions_history --session <session-id> --last 50
 ```
 
-### sessions_send
+## Hybrid Usage (Claude Code + OpenClaw)
 
-Send message to another session:
-```
-sessions_send --to <session-id> --message "Learning: API requires X-Custom-Header"
-```
+Recommended split:
 
-### Learning Sharing Pattern
+- `CLAUDE.md`: repository conventions
+- `.learnings/`: repository-local evidence/history
+- `SOUL.md` / `TOOLS.md` / `AGENTS.md`: workspace-global guidance
 
-When discovering something valuable in session A:
+Flow:
+1. Log locally first
+2. Promote globally only if reusable across projects
+3. Keep wording consistent for searchability
 
-1. Check if other sessions are working on related code:
-   ```
-   sessions_list --active
-   ```
+## OpenClaw-Specific Triggers
 
-2. Share the learning:
-   ```
-   sessions_send --to session-b --message "FYI: Discovered that the auth API requires refresh tokens every 30min"
-   ```
+Capture these as learnings when recurring:
 
-3. Log to workspace file if broadly applicable:
-   - Edit `~/clawd/TOOLS.md` or appropriate file
+- MCP server errors or undocumented behavior
+- Session handoff confusion
+- Model behavior surprises that affect output quality
+- Skill registry/install gotchas
 
-## ClawdHub Integration
+## Troubleshooting Checklist
 
-ClawdHub is OpenClaw's skill registry (similar to agentskills.io).
+If learnings are not sticking:
 
-### Installing Skills
+- Confirm you wrote to a persistent workspace or repo file
+- Confirm target file is loaded/injected in your environment
+- Confirm session context includes the relevant guidance file
+- Prefer explicit writes over assumed automatic persistence
 
-```bash
-clawd skill install <skill-name>
-```
+## Notes
 
-Skills are cached in `~/clawd/skills/`.
-
-### Publishing Skills
-
-1. Create skill following agentskills.io spec
-2. Register with ClawdHub
-3. Skills become available to all OpenClaw users
-
-### Skill Compatibility
-
-Skills from this repo are compatible with:
-- Claude Code (via hooks)
-- Codex CLI (via hooks)
-- OpenClaw (via ClawdHub)
-- GitHub Copilot (via manual setup)
-
-## Hybrid Setup: Claude Code + OpenClaw
-
-When using both tools on the same codebase:
-
-### Recommended Division
-
-| Concern | Where to Store |
-|---------|---------------|
-| Project conventions | `CLAUDE.md` (in repo) |
-| Project learnings | `.learnings/` (in repo) |
-| Personal preferences | `SOUL.md` (openclaw workspace) |
-| Tool knowledge | `TOOLS.md` (openclaw workspace) |
-| Cross-project workflows | `AGENTS.md` (openclaw workspace) |
-
-### Sync Strategy
-
-High-value learnings should exist in both:
-
-1. Log to `.learnings/` first (project context)
-2. If broadly applicable, also add to openclaw workspace
-3. Use consistent formatting for easy grep
-
-### Example Dual Promotion
-
-Learning: "Playwright tests require --headed flag for debugging"
-
-**In `.learnings/LEARNINGS.md`:**
-```markdown
-## [LRN-20250126-001] correction
-
-**Status**: promoted
-**Promoted**: CLAUDE.md, TOOLS.md (openclaw)
-
-### Summary
-Playwright tests require --headed flag for visual debugging
-
-### Details
-...
-```
-
-**In `CLAUDE.md`:**
-```markdown
-## Testing
-- Playwright debugging: use `--headed` flag
-```
-
-**In `~/clawd/TOOLS.md`:**
-```markdown
-## Playwright
-- Debug mode: `npx playwright test --headed`
-- Trace viewer: `npx playwright show-trace trace.zip`
-```
-
-## Detection Triggers for OpenClaw
-
-### Standard Triggers (same as Claude Code)
-- User corrections
-- Command failures
-- API errors
-- Knowledge gaps
-
-### OpenClaw-Specific Triggers
-
-| Trigger | Action |
-|---------|--------|
-| MCP server error | Log to TOOLS.md with server name |
-| Session handoff confusion | Log to AGENTS.md with delegation pattern |
-| Model behavior surprise | Log to SOUL.md with expected vs actual |
-| ClawdHub skill issue | Log to TOOLS.md or report upstream |
-
-## Troubleshooting
-
-### Workspace files not injected
-
-Check `~/.openclaw/openclaw.json`:
-- Verify `workspace` path exists
-- Verify `inject_files` includes desired files
-
-### Session communication fails
-
-- Verify target session is active: `sessions_list --active`
-- Check session ID is correct
-- Session may have ended
-
-### Learning not persisting
-
-OpenClaw doesn't auto-persist learnings. You must:
-1. Explicitly write to workspace files
-2. Or use `.learnings/` for project-specific storage
+Keep this reference focused on integration patterns.
+Detailed self-improvement entry formats and lifecycle remain in `SKILL.md`.
