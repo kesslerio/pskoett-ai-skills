@@ -58,6 +58,20 @@ When you discover something important in one session:
 
 Keep shared messages short and actionable.
 
+### Command Snippets
+
+```bash
+# Find active/recent sessions
+sessions_list --active
+sessions_list --recent 10
+
+# Send a learning to another session
+sessions_send --to <session-id> --message "Learning: <short actionable summary>"
+
+# Pull recent context from a session transcript
+sessions_history --session <session-id> --last 50
+```
+
 ## Hybrid Usage (Claude Code + OpenClaw)
 
 Recommended split:

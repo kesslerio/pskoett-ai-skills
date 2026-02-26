@@ -209,6 +209,19 @@ When a new item looks similar to an existing one:
 4. Raise priority if repeatedly recurring
 5. Consider systemic fix (docs, automation, or architecture)
 
+## Simplify & Harden Feed
+
+When `simplify-and-harden` returns `simplify_and_harden.learning_loop.candidates`:
+
+1. Use `Pattern-Key` as the dedupe key
+2. If key exists, increment `Recurrence-Count` and update `Last-Seen`
+3. If key does not exist, create a new `LRN-*` entry with:
+   - `Source: simplify-and-harden`
+   - `Pattern-Key`
+   - `Recurrence-Count: 1`
+   - `First-Seen` and `Last-Seen`
+4. Add `See Also` links to related entries/tasks
+
 ## Detection Triggers
 
 Corrections:
@@ -300,11 +313,34 @@ Helper script:
 
 Manual option: create `<skill-dir>/SKILL.md` using `assets/SKILL-TEMPLATE.md`.
 
+### Extraction Traceability (Required)
+
+After extracting a learning into a skill:
+
+1. Update source learning entry status to `promoted_to_skill`
+2. Add `Skill-Path: skills/<skill-name>` in metadata
+3. Verify the extracted skill in a fresh session (self-contained, no hidden context)
+
 ## Agent Support
 
 - Claude Code / Codex CLI: hooks-based automation
 - GitHub Copilot: manual workflow prompts
 - OpenClaw: see `references/openclaw-integration.md`
+
+## Periodic Review (Mini)
+
+Run this quick review regularly (for example weekly):
+
+```bash
+# Pending items
+rg -n "\*\*Status\*\*: pending" .learnings
+
+# High-priority entries
+rg -n "\*\*Priority\*\*: high|\*\*Priority\*\*: critical" .learnings
+
+# Recurrence candidates
+rg -n "Pattern-Key|Recurrence-Count|See Also" .learnings/LEARNINGS.md
+```
 
 ## Validation Checklist
 
@@ -315,3 +351,4 @@ Before closing a task:
 - [ ] Recurrence metadata updated
 - [ ] Broad patterns promoted to durable docs
 - [ ] Resolved items include resolution notes
+- [ ] Extracted skills include traceability (`promoted_to_skill` + `Skill-Path`)
